@@ -48,7 +48,8 @@ extends Node3D
 
 @export_tool_button("添加控制点", "Add") var add_point_button = _add_control_point
 @export_tool_button("删除最后控制点", "Remove") var remove_point_button = _remove_last_control_point
-@export_tool_button("重新生成物品", "Reload") var rebuild_button = _do_rebuild
+@export_tool_button("重新生成物品", "Reload") var rebuild_button = _rebuild_now
+@export_tool_button("烘焙到场景", "Save") var bake_button = _bake_to_scene
 
 ## 每个点在世界坐标系中的坐标（自动记录，只读）
 var point_world_positions: Array[Vector3] = []
@@ -61,6 +62,7 @@ var _control_root: Node3D
 var _items_root: Node3D
 var _debug_mesh: MeshInstance3D
 var _rebuild_pending := false
+var _baked := false
 var _cached_control_positions: Array[Vector3] = []
 
 
@@ -103,10 +105,33 @@ func _do_rebuild() -> void:
 	rebuild()
 
 
+func _rebuild_now() -> void:
+	"""手动重新生成：取消烘焙，重新摆放物品"""
+	_baked = false
+	_request_rebuild()
+
+
+func _bake_to_scene() -> void:
+	"""烘焙物品到场景：物品变为独立节点，可单独调整 Transform"""
+	if not Engine.is_editor_hint():
+		return
+	if _items_root == null:
+		return
+	var scene_root := get_tree().edited_scene_root
+	if scene_root == null:
+		return
+	_items_root.owner = scene_root
+	for c in _items_root.get_children():
+		c.owner = scene_root
+	_baked = true
+	print("已将 %d 个物品烘焙到场景，现在可以单独调整每个物品的 Transform" % _items_root.get_child_count())
+
+
 ## 重新计算所有点的世界坐标并重新放置物品
 func rebuild() -> void:
 	_compute_points()
-	_place_items()
+	if not _baked:
+		_place_items()
 	_update_debug_mesh()
 
 
