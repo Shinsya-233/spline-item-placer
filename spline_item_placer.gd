@@ -254,27 +254,31 @@ func _remove_last_control_point() -> void:
 func _setup_items_root() -> void:
 	if _items_root != null:
 		return
-	_items_root = Node3D.new()
-	_items_root.name = "GeneratedItems"
-	add_child(_items_root)
-	if Engine.is_editor_hint():
-		_items_root.owner = null
+	_items_root = get_node_or_null("GeneratedItems") as Node3D
+	if _items_root == null:
+		_items_root = Node3D.new()
+		_items_root.name = "GeneratedItems"
+		add_child(_items_root)
+		if Engine.is_editor_hint():
+			_items_root.owner = null
 
 
 func _setup_debug_mesh() -> void:
 	if _debug_mesh != null:
 		return
-	_debug_mesh = MeshInstance3D.new()
-	_debug_mesh.name = "DebugLines"
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.vertex_color_use_as_albedo = true
-	mat.no_depth_test = true
-	_debug_mesh.material_override = mat
-	_debug_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_debug_mesh)
-	if Engine.is_editor_hint():
-		_debug_mesh.owner = null
+	_debug_mesh = get_node_or_null("DebugLines") as MeshInstance3D
+	if _debug_mesh == null:
+		_debug_mesh = MeshInstance3D.new()
+		_debug_mesh.name = "DebugLines"
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.vertex_color_use_as_albedo = true
+		mat.no_depth_test = true
+		_debug_mesh.material_override = mat
+		_debug_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_debug_mesh)
+		if Engine.is_editor_hint():
+			_debug_mesh.owner = null
 	_debug_mesh.visible = show_debug_lines
 
 
