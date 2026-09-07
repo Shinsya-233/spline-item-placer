@@ -37,16 +37,34 @@ extends Node3D
 		_request_rebuild()
 
 @export_group("样条线")
-## 均匀分布在整条线上的点的数量
+## 均匀分布在整条线上的点的数量（use_fixed_spacing 启用时忽略，自动计算）
 @export_range(1, 10000) var point_count: int = 10:
 	set(value):
 		point_count = maxi(1, value)
+		_request_rebuild()
+
+## 使用固定间距模式：指定相邻物品间距，自动计算放置数量
+@export var use_fixed_spacing: bool = false:
+	set(value):
+		use_fixed_spacing = value
+		_request_rebuild()
+
+## 固定间距（米），use_fixed_spacing 启用时生效
+@export var spacing_distance: float = 5.0:
+	set(value):
+		spacing_distance = maxf(0.01, value)
 		_request_rebuild()
 
 ## 是否包含线条两个端点
 @export var include_endpoints: bool = true:
 	set(value):
 		include_endpoints = value
+		_request_rebuild()
+
+## 曲线模式：Linear=直线连接，Smooth=平滑曲线（Catmull-Rom）
+@export_enum("Linear", "Smooth") var curve_mode: int = 0:
+	set(value):
+		curve_mode = value
 		_request_rebuild()
 
 @export_group("调试显示")
@@ -168,27 +186,46 @@ func _compute_points() -> void:
 	var cps := get_control_points()
 	for cp in cps:
 		control_point_world_positions.append(to_global(cp))
-	if cps.size() < 2 or point_count < 1:
+	if cps.size() < 2:
 		return
+
+	# 构建采样点：Linear 直接用控制点，Smooth 用 Catmull-Rom 插值
+	var sample_points: Array[Vector3]
+	if curve_mode == 1:
+		sample_points = _build_smooth_curve(cps, 20)
+	else:
+		sample_points = cps
+
+	# 计算采样点之间的线段长度
 	var seg_lengths: Array[float] = []
 	var total_length := 0.0
-	for i in range(cps.size() - 1):
-		var seg_len: float = cps[i].distance_to(cps[i + 1])
+	for i in range(sample_points.size() - 1):
+		var seg_len: float = sample_points[i].distance_to(sample_points[i + 1])
 		seg_lengths.append(seg_len)
 		total_length += seg_len
 	if total_length <= 0.0001:
 		return
-	var spacing: float
-	if include_endpoints and point_count >= 2:
-		spacing = total_length / float(point_count - 1)
+
+	# 确定放置点数量：固定间距模式根据总长自动计算
+	var n: int
+	if use_fixed_spacing:
+		n = maxi(1, int(total_length / spacing_distance) + 1)
 	else:
-		spacing = total_length / float(point_count)
+		n = point_count
+	if n < 1:
+		return
+
+	var spacing: float
+	if include_endpoints and n >= 2:
+		spacing = total_length / float(n - 1)
+	else:
+		spacing = total_length / float(n)
 	var start_offset := 0.0
 	if not include_endpoints:
 		start_offset = spacing * 0.5
-	for i in range(point_count):
+	for i in range(n):
 		var dist: float = minf(start_offset + spacing * float(i), total_length)
-		point_world_positions.append(to_global(_sample_at_distance(dist, seg_lengths, cps)))
+		point_world_positions.append(to_global(_sample_at_distance(dist, seg_lengths, sample_points)))
 
 
 func _sample_at_distance(dist: float, seg_lengths: Array[float], cps: Array[Vector3]) -> Vector3:
@@ -202,6 +239,32 @@ func _sample_at_distance(dist: float, seg_lengths: Array[float], cps: Array[Vect
 	if seg > 0.0001:
 		t = clampf(rem / seg, 0.0, 1.0)
 	return cps[idx].lerp(cps[idx + 1], t)
+
+
+func _build_smooth_curve(cps: Array[Vector3], samples_per_seg: int) -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	var n := cps.size()
+	for i in range(n - 1):
+		var p0 := cps[maxi(i - 1, 0)]
+		var p1 := cps[i]
+		var p2 := cps[i + 1]
+		var p3 := cps[mini(i + 2, n - 1)]
+		for j in range(samples_per_seg):
+			var t := float(j) / float(samples_per_seg)
+			result.append(_catmull_rom(p0, p1, p2, p3, t))
+	result.append(cps[n - 1])
+	return result
+
+
+func _catmull_rom(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t: float) -> Vector3:
+	var t2 := t * t
+	var t3 := t2 * t
+	return 0.5 * (
+		(2.0 * p1) +
+		(-p0 + p2) * t +
+		(2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 +
+		(-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3
+	)
 
 
 func _place_items() -> void:
@@ -332,9 +395,15 @@ func _update_debug_mesh() -> void:
 	im.surface_begin(Mesh.PRIMITIVE_LINES)
 	# 控制点连线（黄色）
 	im.surface_set_color(Color(1.0, 0.85, 0.2))
-	for i in range(cps.size() - 1):
-		im.surface_add_vertex(cps[i])
-		im.surface_add_vertex(cps[i + 1])
+	if curve_mode == 1 and cps.size() >= 2:
+		var curve_pts := _build_smooth_curve(cps, 10)
+		for i in range(curve_pts.size() - 1):
+			im.surface_add_vertex(curve_pts[i])
+			im.surface_add_vertex(curve_pts[i + 1])
+	else:
+		for i in range(cps.size() - 1):
+			im.surface_add_vertex(cps[i])
+			im.surface_add_vertex(cps[i + 1])
 	# 均匀点（绿色十字）
 	im.surface_set_color(Color(0.2, 1.0, 0.4))
 	for p in point_world_positions:
