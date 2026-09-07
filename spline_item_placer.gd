@@ -30,6 +30,12 @@ extends Node3D
 		rotation_offset = value
 		_request_rebuild()
 
+## 物品的缩放，默认为 (1, 1, 1)
+@export var scale_offset := Vector3.ONE:
+	set(value):
+		scale_offset = value
+		_request_rebuild()
+
 @export_group("样条线")
 ## 均匀分布在整条线上的点的数量
 @export_range(1, 10000) var point_count: int = 10:
@@ -212,6 +218,7 @@ func _place_items() -> void:
 		if inst is Node3D:
 			inst.global_position = point_world_positions[i]
 			inst.global_rotation = Vector3(deg_to_rad(rotation_offset.x), deg_to_rad(rotation_offset.y), deg_to_rad(rotation_offset.z))
+			inst.scale = scale_offset
 			if align_to_path:
 				inst.global_rotation.y += _yaw_at(i)
 		if Engine.is_editor_hint():
