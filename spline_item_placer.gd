@@ -73,7 +73,7 @@ extends Node3D
 	set(value):
 		show_debug_lines = value
 		if _debug_mesh != null:
-			_debug_mesh.visible = value
+			_debug_mesh.visible = value and Engine.is_editor_hint()
 			_update_debug_mesh()
 
 @export_tool_button("添加控制点", "Add") var add_point_button = _add_control_point
@@ -381,7 +381,7 @@ func _setup_debug_mesh() -> void:
 		add_child(_debug_mesh)
 		if Engine.is_editor_hint():
 			_debug_mesh.owner = null
-	_debug_mesh.visible = show_debug_lines
+	_debug_mesh.visible = show_debug_lines and Engine.is_editor_hint()
 
 
 func _update_debug_mesh() -> void:
