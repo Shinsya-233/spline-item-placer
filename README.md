@@ -1,4 +1,4 @@
-# 样条线摆放插件 / Spline Item Placer
+# Godot 4 样条线摆放插件 / Spline Item Placer for Godot 4
 
 一个 Godot 4 工具脚本：沿控制点折线均匀摆放物品（例如沿马路摆放路灯），支持在编辑器中直接拖动控制点，实时预览，并记录每个点的世界坐标。
 
